@@ -1,12 +1,19 @@
 import React from "react";
 
-interface SearchInputProps {
-  placeholder?: string;
-  onChange?: (value: string) => void;
+interface RefProps {
   ref: React.RefObject<HTMLInputElement>;
 }
 
-const SearchInput = ({ ref: ref, placeholder, onChange }: SearchInputProps) => {
+interface SearchInputProps {
+  placeholder?: string;
+  onChange?: (value: string) => void;
+}
+
+const SearchInput = ({
+  ref: ref,
+  placeholder,
+  onChange,
+}: SearchInputProps & RefProps) => {
   return (
     <input
       type="search"
