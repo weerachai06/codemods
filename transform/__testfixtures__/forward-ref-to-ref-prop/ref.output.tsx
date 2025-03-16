@@ -6,7 +6,7 @@ interface SearchInputProps {
   ref: React.RefObject<HTMLInputElement>;
 }
 
-const SearchInput = ({ placeholder, onChange, ref: ref }: SearchInputProps) => {
+const SearchInput = ({ ref: ref, placeholder, onChange }: SearchInputProps) => {
   return (
     <input
       type="search"

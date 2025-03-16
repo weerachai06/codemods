@@ -6,9 +6,9 @@ interface ExpectedProps {
 }
 
 const Alert = ({
+  ref: ref,
   className,
   variant,
-  ref,
   ...props
 }: ExpectedProps & React.HTMLAttributes<HTMLInputElement>) => (
   <input ref={ref} />

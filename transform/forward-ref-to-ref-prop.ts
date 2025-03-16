@@ -65,7 +65,7 @@ function getFirstOfGenericForwardRefType(file: FileInfo, api: API): string {
 function getPropsDeclarationInterface(file: FileInfo, api: API) {
   const j = api.jscodeshift;
   const root = j(file.source);
-  let propsInterface: string | undefined = undefined;
+  let propsInterface: string | undefined = "Props";
 
   root
     .find(j.CallExpression, {
@@ -87,9 +87,9 @@ function getPropsDeclarationInterface(file: FileInfo, api: API) {
           refType.typeName.type === "Identifier"
         ) {
           propsInterface = refType.typeName.name;
-        } else if (refType.type === "TSIntersectionType") {
+        } /* else if (refType.type === "TSIntersectionType") {
           propsInterface = undefined;
-        }
+        } */
       }
     });
 
@@ -126,6 +126,19 @@ function updatePropsInterface(
         ),
       );
     });
+}
+
+function reorderProperties(properties: ObjectPattern["properties"]) {
+  // Separate spread elements from other properties
+  const spreadProps = properties.filter(
+    (prop) => (prop.type as "RestElement") === "RestElement",
+  );
+  const regularProps = properties.filter(
+    (prop) => (prop.type as "RestElement") !== "RestElement",
+  );
+
+  // Return combined array with spread last
+  return [...regularProps, ...spreadProps];
 }
 
 export default async function transformer(file: FileInfo, api: API) {
@@ -182,12 +195,13 @@ export default async function transformer(file: FileInfo, api: API) {
       const arrowFunction = path.node.arguments[0];
       if (arrowFunction.type !== "ArrowFunctionExpression") return;
 
-      // Get props from the first parameter if it's an object pattern
+      // Get props from the first parameter
       const [propsParam] = arrowFunction.params;
       let propProperties: ObjectPattern["properties"] = [];
 
       if (propsParam.type === "ObjectPattern") {
-        propProperties = propsParam.properties;
+        // Reorder properties to ensure spread is last
+        propProperties = reorderProperties(propsParam.properties);
       } else if (
         propsParam.type === "Identifier" &&
         propsParam.name === "props"
@@ -201,15 +215,21 @@ export default async function transformer(file: FileInfo, api: API) {
               declarator.node.init?.type === "Identifier" &&
               declarator.node.init?.name === "props"
             ) {
-              propProperties = declarator.node.id.properties;
+              propProperties = reorderProperties(declarator.node.id.properties);
             }
           });
       }
 
-      // Create new function with received parameters
+      const restProperties = propProperties.filter(
+        (prop) => (prop.type as "RestElement") === "RestElement",
+      );
+      // Create new function parameters with ref and ordered props
       const paramWithType = j.objectPattern([
-        ...propProperties,
         j.property("init", j.identifier("ref"), j.identifier("ref")),
+        ...propProperties.filter(
+          (prop) => (prop.type as "RestElement") !== "RestElement",
+        ),
+        ...restProperties,
       ]);
 
       // Add type annotation to the object pattern
