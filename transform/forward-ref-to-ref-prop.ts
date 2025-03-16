@@ -281,20 +281,6 @@ export default async function transformer(file: FileInfo, api: API) {
       j(path).replaceWith(newFunction);
     });
 
-  // Update useForkRef call to use ref prop
-  // root
-  //   .find(j.CallExpression, {
-  //     callee: { name: "useForkRef" }
-  //   })
-  //   .forEach((path) => {
-  //     if (path.node.arguments.length === 2) {
-  //       const [firstArg, secondArg] = path.node.arguments;
-  //       if (secondArg.type === "Identifier" && secondArg.name === "ref") {
-  //         j(path).replaceWith(j.identifier("ref"));
-  //       }
-  //     }
-  //   });
-
   // Get transformed source
   const transformed = root.toSource({ parser: "tsx" });
 
