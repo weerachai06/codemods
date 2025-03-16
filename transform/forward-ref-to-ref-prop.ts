@@ -6,6 +6,7 @@ import {
 } from "jscodeshift";
 import prettier from "prettier";
 import type * as namedType from "jscodeshift";
+import { log } from "../helpers/logger";
 
 // Add type definitions
 type TypeName = namedType.Identifier | namedType.TSQualifiedName;
@@ -69,15 +70,15 @@ function getFirstOfGenericForwardRefType(file: FileInfo, api: API): string {
 
 function reorderProperties(properties: ObjectPattern["properties"]) {
   // Separate spread elements from other properties
-  const spreadProps = properties.filter(
+  const restProps = properties.filter(
     (prop) => (prop.type as "RestElement") === "RestElement",
   );
   const regularProps = properties.filter(
     (prop) => (prop.type as "RestElement") !== "RestElement",
   );
 
-  // Return combined array with spread last
-  return [...regularProps, ...spreadProps];
+  // Return combined array with rest last
+  return [...regularProps, ...restProps];
 }
 
 function createRefPropsInterface(j: any, elementType: string) {
@@ -193,7 +194,7 @@ export default async function transformer(file: FileInfo, api: API) {
         }
       }
 
-      const arrowFunction = path.node.arguments[0];
+      let arrowFunction = path.node.arguments[0];
       if (arrowFunction.type !== "ArrowFunctionExpression") return;
 
       // Get props from the first parameter
@@ -201,7 +202,7 @@ export default async function transformer(file: FileInfo, api: API) {
       let propProperties: ObjectPattern["properties"] = [];
 
       if (propsParam.type === "ObjectPattern") {
-        // Reorder properties to ensure spread is last
+        // Reorder properties to ensure rest is last
         propProperties = reorderProperties(propsParam.properties);
       } else if (
         propsParam.type === "Identifier" &&
@@ -242,7 +243,7 @@ export default async function transformer(file: FileInfo, api: API) {
         arrowFunction.body,
       );
 
-      j(path).replaceWith(newFunction);
+      return j(path).replaceWith(newFunction);
     });
 
   // Get transformed source without modifying imports/exports

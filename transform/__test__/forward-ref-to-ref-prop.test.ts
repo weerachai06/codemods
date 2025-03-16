@@ -5,7 +5,7 @@ jest.autoMockOff();
 const name = "forward-ref-to-ref-prop";
 
 // The fixtures to test
-const fixtures = ["ref", "intersection-type"] as const;
+const fixtures = ["ref", "intersection-type", "no-spread-props"] as const;
 
 describe(name, () => {
   fixtures.forEach((test) =>
