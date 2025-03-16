@@ -158,6 +158,31 @@ function createPropsTypeIntersection(
   return null;
 }
 
+function createDestructuredProps(
+  j: any,
+  properties: any[],
+  combinedPropsType: any,
+) {
+  // Separate regular props and rest element
+  const regularProps = properties.filter((prop) => prop.type !== "RestElement");
+
+  const restElement = j.restElement(j.identifier("props"));
+
+  // Create object pattern with ref first, then regular props, then rest
+  const paramWithType = j.objectPattern([
+    j.property("init", j.identifier("ref"), j.identifier("ref")),
+    ...regularProps,
+    restElement,
+  ]);
+
+  // Add type annotation if available
+  if (combinedPropsType) {
+    paramWithType.typeAnnotation = j.tsTypeAnnotation(combinedPropsType);
+  }
+
+  return paramWithType;
+}
+
 export default async function transformer(file: FileInfo, api: API) {
   const j = api.jscodeshift;
   const root = j(file.source);
@@ -204,6 +229,28 @@ export default async function transformer(file: FileInfo, api: API) {
       if (propsParam.type === "ObjectPattern") {
         // Reorder properties to ensure rest is last
         propProperties = reorderProperties(propsParam.properties);
+
+        const restProperties = propProperties.filter(
+          (prop) => (prop.type as "RestElement") === "RestElement",
+        );
+        // Create new function parameters with ref and ordered props
+        const paramWithType = j.objectPattern([
+          j.property("init", j.identifier("ref"), j.identifier("ref")),
+          ...propProperties.filter(
+            (prop) => (prop.type as "RestElement") !== "RestElement",
+          ),
+          ...restProperties,
+        ]);
+
+        // Add intersection type annotation
+        if (combinedPropsType)
+          paramWithType.typeAnnotation = j.tsTypeAnnotation(combinedPropsType);
+
+        const newFunction = j.arrowFunctionExpression(
+          [paramWithType],
+          arrowFunction.body,
+        );
+        j(path).replaceWith(newFunction);
       } else if (
         propsParam.type === "Identifier" &&
         propsParam.name === "props"
@@ -217,33 +264,37 @@ export default async function transformer(file: FileInfo, api: API) {
               declarator.node.init?.type === "Identifier" &&
               declarator.node.init?.name === "props"
             ) {
+              // Reorder properties to ensure rest is last
+
               propProperties = reorderProperties(declarator.node.id.properties);
+              const restProperties = propProperties.filter(
+                (prop) => (prop.type as "RestElement") === "RestElement",
+              );
+
+              // Create new function parameters with ref and ordered props
+              const paramWithType = j.objectPattern([
+                j.property("init", j.identifier("ref"), j.identifier("ref")),
+                // @ts-ignore
+                j.restElement(j.identifier("props")),
+              ]);
+              // Replace the props parameter with destructured pattern
+              arrowFunction.params[0] = paramWithType;
+              arrowFunction.params.pop(); // Remove the rest element
+
+              // Add intersection type annotation
+              if (combinedPropsType)
+                paramWithType.typeAnnotation =
+                  j.tsTypeAnnotation(combinedPropsType);
+
+              // Replace the function with updated props
+              const newFunction = j.arrowFunctionExpression(
+                [paramWithType],
+                arrowFunction.body,
+              );
+              j(path).replaceWith(newFunction);
             }
           });
       }
-
-      const restProperties = propProperties.filter(
-        (prop) => (prop.type as "RestElement") === "RestElement",
-      );
-      // Create new function parameters with ref and ordered props
-      const paramWithType = j.objectPattern([
-        j.property("init", j.identifier("ref"), j.identifier("ref")),
-        ...propProperties.filter(
-          (prop) => (prop.type as "RestElement") !== "RestElement",
-        ),
-        ...restProperties,
-      ]);
-
-      // Add intersection type annotation
-      if (combinedPropsType)
-        paramWithType.typeAnnotation = j.tsTypeAnnotation(combinedPropsType);
-
-      const newFunction = j.arrowFunctionExpression(
-        [paramWithType],
-        arrowFunction.body,
-      );
-
-      return j(path).replaceWith(newFunction);
     });
 
   // Get transformed source without modifying imports/exports
