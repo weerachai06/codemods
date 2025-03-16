@@ -1,5 +1,5 @@
 {
-  "name": "@your-name/react-codemod",
+  "name": "@weerachai06/react-codemod",
   "version": "1.0.0",
   "description": "React codemod for transforming forwardRef components",
   "license": "MIT",
