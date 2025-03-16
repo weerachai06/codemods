@@ -6,7 +6,6 @@ interface RefProps {
 
 interface ExpectedProps {
   variant: "primary" | "secondary";
-  ref: React.RefObject<HTMLInputElement>;
 }
 
 const Alert = ({
@@ -14,7 +13,7 @@ const Alert = ({
   className,
   variant,
   ...props
-}: ExpectedProps & React.HTMLAttributes<HTMLInputElement> & RefProps) => (
+}: React.HTMLAttributes<HTMLInputElement> & ExpectedProps & RefProps) => (
   <input ref={ref} />
 );
 

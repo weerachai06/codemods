@@ -6,7 +6,6 @@ import {
 } from "jscodeshift";
 import prettier from "prettier";
 import type * as namedType from "jscodeshift";
-import { log } from "../helpers/logger";
 
 // Add type definitions
 type TypeName = namedType.Identifier | namedType.TSQualifiedName;
@@ -68,50 +67,6 @@ function getFirstOfGenericForwardRefType(file: FileInfo, api: API): string {
   return elementType;
 }
 
-function getPropsDeclarationInterface(file: FileInfo, api: API) {
-  const j = api.jscodeshift;
-  const root = j(file.source);
-  let propsInterface: string | undefined = "Props";
-
-  root
-    .find(j.CallExpression, {
-      callee: {
-        type: "MemberExpression",
-        property: { name: "forwardRef" },
-      },
-    })
-    .forEach((path) => {
-      if ("typeParameters" in path.node) {
-        const typeParameters = path.node
-          .typeParameters as namedType.TypeParameterInstantiation;
-        const refType = typeParameters
-          .params[1] as unknown as TSTypeReferenceNode;
-
-        if (refType.type === "TSIntersectionType") {
-        } else if (
-          refType.type === "TSTypeReference" &&
-          refType.typeName.type === "Identifier"
-        ) {
-          propsInterface = refType.typeName.name;
-        }
-      }
-    });
-
-  return propsInterface;
-}
-
-function updatePropsType(path: any, j: any, propsInterface: string) {
-  // Create intersection type annotation
-  const typeAnnotation = j.tsTypeAnnotation(
-    j.tsIntersectionType([
-      j.tsTypeReference(j.identifier(propsInterface)),
-      j.tsTypeReference(j.identifier("RefProps")),
-    ]),
-  );
-
-  return typeAnnotation;
-}
-
 function reorderProperties(properties: ObjectPattern["properties"]) {
   // Separate spread elements from other properties
   const spreadProps = properties.filter(
@@ -152,11 +107,34 @@ function createPropsTypeIntersection(
     path.node.typeParameters as TSTypeParameterInstantiation;
   if (!typeParameters?.params[1]) return null;
 
+  // Handle HTMLAttributes with generic type
+  function createHTMLAttributesType(elementType: string) {
+    return j.tsTypeReference(
+      j.tsQualifiedName(j.identifier("React"), j.identifier("HTMLAttributes")),
+      j.tsTypeParameterInstantiation([
+        j.tsTypeReference(j.identifier(elementType)),
+      ]),
+    );
+  }
+
   const propsType = typeParameters.params[1];
   if (propsType.type === "TSIntersectionType") {
     const typeMapping = propsType.types
       .map((type) => {
         if (type.type === "TSTypeReference") {
+          if (type.typeName.type === "TSQualifiedName") {
+            // Handle React.HTMLAttributes<T>
+            const elementType = type.typeParameters?.params[0];
+            if (
+              type.typeName.right.type === "Identifier" &&
+              type.typeName.right.name === "HTMLAttributes" &&
+              elementType?.type === "TSTypeReference"
+            ) {
+              // @ts-ignore
+              return createHTMLAttributesType(elementType.typeName.name);
+            }
+          }
+
           return j.tsTypeReference(type.typeName);
         }
         return undefined;
@@ -186,29 +164,20 @@ export default async function transformer(file: FileInfo, api: API) {
   // Find element type from forwardRef generic first
   const forwardRefType = getFirstOfGenericForwardRefType(file, api);
 
-  // Find the last import declaration
-  const lastImport = root.find(j.ImportDeclaration).at(-1).paths()[0];
+  // Create RefProps interface
+  const refPropsInterface = createRefPropsInterface(j, forwardRefType);
 
-  if (lastImport) {
-    // Insert RefProps interface after the last import
-    const refPropsInterface = createRefPropsInterface(j, forwardRefType);
-    j(lastImport).insertAfter(refPropsInterface);
-  } else {
-    // If no imports found, insert at the beginning of the file
-    root.find(j.Program).forEach((path) => {
-      const refPropsInterface = createRefPropsInterface(j, forwardRefType);
-      path.node.body.unshift(refPropsInterface);
-    });
+  // Find the first interface and insert RefProps before it
+  const firstInterface = root.find(j.TSInterfaceDeclaration).at(0).paths()[0];
+  if (firstInterface) {
+    j(firstInterface).insertBefore(refPropsInterface);
   }
-
-  // const propsInterface = getPropsDeclarationInterface(file, api);
 
   // Transform forwardRef to regular function component
   root
     .find(j.CallExpression, {
       callee: {
         type: "MemberExpression",
-        object: { name: "React" },
         property: { name: "forwardRef" },
       },
     })
@@ -276,12 +245,16 @@ export default async function transformer(file: FileInfo, api: API) {
       j(path).replaceWith(newFunction);
     });
 
-  // Get transformed source
-  const transformed = root.toSource({ parser: "tsx" });
+  // Get transformed source without modifying imports/exports
+  const transformed = root.toSource({
+    quote: "double",
+    trailingComma: true,
+    arrayBracketSpacing: true,
+    objectCurlySpacing: true,
+  });
 
-  // Use synchronous Prettier formatting
-  const options = await prettier.resolveConfig(process.cwd());
-
+  // Use Prettier but preserve original formatting
+  const options = await prettier.resolveConfig(file.path);
   return prettier.format(transformed, {
     ...options,
     parser: "typescript",
