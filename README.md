@@ -58,6 +58,21 @@ Transform multiple files:
 npm run transform:dry ./dist/transform/forward-ref-to-ref-prop.js './src/**/*.tsx'
 ```
 
+## NPX Usage
+
+Run directly with npx:
+
+```bash
+npx @weerachai06/react-codemod './src/**/*.tsx'
+```
+
+Or install globally:
+
+```bash
+npm install -g @weerachai06/react-codemod
+react-codemod './src/**/*.tsx'
+```
+
 ## Transforms
 
 ### forward-ref-to-ref-prop
