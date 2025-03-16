@@ -1,0 +1,37 @@
+{
+  "name": "react-codemod",
+  "version": "1.0.0",
+  "description": "React codemod",
+  "license": "MIT",
+  "scripts": {
+    "test": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" jest --config jest.config.js",
+    "test:watch": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" jest --config jest.config.js --watchAll",
+    "test:coverage": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" jest --config jest.config.js --coverage",
+    "build": "rm -rf dist && tsc",
+    "build:watch": "rm -rf dist && tsc --watch",
+    "transform": "jscodeshift -t --parser=tsx",
+    "transform:dry": "jscodeshift --dry-run --print --parser=tsx -t",
+    "transform:print": "jscodeshift -t --parser=tsx --print"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.10",
+    "@babel/plugin-transform-modules-commonjs": "^7.26.3",
+    "@babel/preset-react": "^7.26.3",
+    "@babel/preset-typescript": "^7.26.0",
+    "@babel/register": "^7.25.9",
+    "@types/jest": "^29.5.14",
+    "@types/jscodeshift": "^0.12.0",
+    "@types/prettier": "^2.7.3",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "jest": "^29.7.0",
+    "prettier": "^3.5.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "ts-jest": "^29.2.6",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "jscodeshift": "^17.1.2"
+  }
+}
