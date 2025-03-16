@@ -144,28 +144,39 @@ function createRefPropsInterface(j: any, elementType: string) {
   );
 }
 
-function handleIntersectionType(path: any, j: any, forwardRefType: string) {
-  const typeParameters = path.node.typeParameters;
+function createPropsTypeIntersection(
+  j: namedType.JSCodeshift,
+  path: namedType.ASTPath<namedType.CallExpression>,
+) {
+  const typeParameters = // @ts-ignore
+    path.node.typeParameters as TSTypeParameterInstantiation;
   if (!typeParameters?.params[1]) return null;
 
   const propsType = typeParameters.params[1];
-  if (propsType.type !== "TSIntersectionType") return null;
+  if (propsType.type === "TSIntersectionType") {
+    const typeMapping = propsType.types
+      .map((type) => {
+        if (type.type === "TSTypeReference") {
+          return j.tsTypeReference(type.typeName);
+        }
+        return undefined;
+      })
+      .filter((data): data is NonNullable<typeof data> => Boolean(data));
 
-  // Create RefProps interface
-  const refPropsInterface = createRefPropsInterface(j, forwardRefType);
-
-  // Create new intersection type without modifying original props
-  const newTypeAnnotation = j.tsTypeAnnotation(
-    j.tsIntersectionType([
-      ...propsType.types,
+    return j.tsIntersectionType([
+      ...typeMapping,
       j.tsTypeReference(j.identifier("RefProps")),
-    ]),
-  );
+    ]);
+  }
 
-  return {
-    refPropsInterface,
-    typeAnnotation: newTypeAnnotation,
-  };
+  if (propsType.type === "TSTypeReference") {
+    return j.tsIntersectionType([
+      j.tsTypeReference(propsType.typeName),
+      j.tsTypeReference(j.identifier("RefProps")),
+    ]);
+  }
+
+  return null;
 }
 
 export default async function transformer(file: FileInfo, api: API) {
@@ -190,14 +201,7 @@ export default async function transformer(file: FileInfo, api: API) {
     });
   }
 
-  const propsInterface = getPropsDeclarationInterface(file, api);
-  // If it's intersection type, skip the transformation
-  if (!propsInterface) {
-    log(
-      "Skipping transformation because props interface is an intersection type",
-    );
-    return file.source;
-  }
+  // const propsInterface = getPropsDeclarationInterface(file, api);
 
   // Transform forwardRef to regular function component
   root
@@ -209,24 +213,14 @@ export default async function transformer(file: FileInfo, api: API) {
       },
     })
     .forEach((path) => {
-      const intersectionResult = handleIntersectionType(
-        path,
-        j,
-        forwardRefType,
-      );
+      const combinedPropsType = createPropsTypeIntersection(j, path);
 
-      if (intersectionResult) {
-        // Add RefProps interface after imports
-        const lastImport = root.find(j.ImportDeclaration).at(-1).paths()[0];
-        if (lastImport) {
-          j(lastImport).insertAfter(intersectionResult.refPropsInterface);
-        }
-
-        // Update function parameter type
+      if (combinedPropsType) {
         // @ts-ignore
         const [propsParam] = path.node.arguments[0].params;
-        if (propsParam.type === "ObjectPattern") {
-          propsParam.typeAnnotation = intersectionResult.typeAnnotation;
+
+        if (propsParam.type === "ObjectPattern" && combinedPropsType) {
+          propsParam.typeAnnotation = combinedPropsType;
         }
       }
 
@@ -271,7 +265,8 @@ export default async function transformer(file: FileInfo, api: API) {
       ]);
 
       // Add intersection type annotation
-      paramWithType.typeAnnotation = updatePropsType(path, j, propsInterface);
+      if (combinedPropsType)
+        paramWithType.typeAnnotation = j.tsTypeAnnotation(combinedPropsType);
 
       const newFunction = j.arrowFunctionExpression(
         [paramWithType],
