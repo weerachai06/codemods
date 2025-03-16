@@ -1,6 +1,6 @@
 {
   "name": "@weerachai06/react-codemod",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "React codemod for transforming forwardRef components",
   "license": "MIT",
   "bin": {
@@ -43,13 +43,13 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "jest": "^29.7.0",
-    "prettier": "^3.5.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "ts-jest": "^29.2.6",
     "typescript": "^5.8.2"
   },
   "dependencies": {
-    "jscodeshift": "^17.1.2"
+    "jscodeshift": "^17.1.2",
+    "prettier": "^3.5.3"
   }
 }
