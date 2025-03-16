@@ -1,8 +1,18 @@
 {
-  "name": "react-codemod",
+  "name": "@your-name/react-codemod",
   "version": "1.0.0",
-  "description": "React codemod",
+  "description": "React codemod for transforming forwardRef components",
   "license": "MIT",
+  "bin": {
+    "react-codemod": "./bin/cli.js"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" jest --config jest.config.js",
     "test:watch": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" jest --config jest.config.js --watchAll",
@@ -11,8 +21,16 @@
     "build:watch": "rm -rf dist && tsc --watch",
     "transform": "jscodeshift -t --parser=tsx",
     "transform:dry": "jscodeshift --dry-run --print --parser=tsx -t",
-    "transform:print": "jscodeshift -t --parser=tsx --print"
+    "transform:print": "jscodeshift -t --parser=tsx --print",
+    "prepublishOnly": "npm run build"
   },
+  "keywords": [
+    "codemod",
+    "react",
+    "transform",
+    "jscodeshift",
+    "forwardref"
+  ],
   "devDependencies": {
     "@babel/core": "^7.26.10",
     "@babel/plugin-transform-modules-commonjs": "^7.26.3",
