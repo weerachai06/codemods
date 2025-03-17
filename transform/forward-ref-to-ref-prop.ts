@@ -19,6 +19,18 @@ type TSTypeReferenceNode =
     }
   | namedType.TSIntersectionType;
 
+function traverseQualifiedName(typeName: namedType.TSQualifiedName): string {
+  // Handle nested qualified names (e.g., A.B.C)
+  if (typeName.left.type === "TSQualifiedName") {
+    // @ts-ignore
+    return `${traverseQualifiedName(typeName.left)}.${typeName.right.name}`;
+  }
+
+  // Base case: single qualified name (e.g., A.B)
+  // @ts-ignore
+  return `${typeName.left.name}.${typeName.right.name}`;
+}
+
 /**
  * Extracts the first generic type parameter from React.forwardRef usage in a file.
  * This function specifically looks for the element type in forwardRef's type parameters.
@@ -60,7 +72,7 @@ function getFirstOfGenericForwardRefType(file: FileInfo, api: API): string {
           refType.typeName.type === "TSQualifiedName"
         ) {
           // @ts-ignore
-          elementType = refType.typeName.qualification.name;
+          elementType = traverseQualifiedName(refType.typeName);
         }
       }
     });
